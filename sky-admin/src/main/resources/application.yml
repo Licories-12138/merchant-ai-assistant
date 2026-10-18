@@ -56,6 +56,13 @@ spring:
       chat:
         model: qwen3.7-flash
         temperature: 0.2
+      # 向量模型：RAG 检索用。父块/子块入库存的就是这个模型的输出
+      # 🔴 必须扁平化写 model，不要再套一层 options（Spring AI 2.0.1 已废弃旧写法）
+      #    不配这一段的话 Spring AI 会默认用 text-embedding-ada-002（那是 OpenAI 的模型），
+      #    百炼不认，第一次 embed() 就会报"模型不存在" —— 而且在启动阶段完全不报错，很难查
+      embedding:
+        model: text-embedding-v4
+        # dimensions: 1024  # 默认就是 1024；改这里必须同时重建全部向量，否则维度对不上
   # 资源信息
   messages:
     # 国际化资源文件路径

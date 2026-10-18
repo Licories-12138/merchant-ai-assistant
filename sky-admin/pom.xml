@@ -61,6 +61,18 @@
             <version>${sky.version}</version>
         </dependency>
 
+        <!-- 集成测试（2026-10-18 新增）
+             为什么放在 sky-admin 而不是 sky-merchant：
+             这里才有启动类 SkyApplication 和 application*.yml ——
+             Spring Boot 的 @SpringBootTest 从测试类所在包向上找 @SpringBootConfiguration，
+             而 sky-merchant 的 classpath 里看不到 sky-admin（依赖方向是 admin → merchant）。
+             所以需要真实 Spring 上下文的集成测试只能放在本模块。
+             sky-merchant 里那个 starter-test 是给纯单元测试（SqlValidatorImplTest）用的，两者不冲突。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
