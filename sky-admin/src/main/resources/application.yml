@@ -54,7 +54,11 @@ spring:
       api-key: ${DASHSCOPE_KEY}
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       chat:
-        model: qwen3.7-flash
+        # 原配 qwen3.7-flash，2026-10-15 起免费额度耗尽（403 AllocationQuota.FreeTierOnly），
+        # 2026-10-19 重新探测：qwen-flash / qwen-plus / qwen-max / qwen-long 有额度，qwen-turbo 限流。
+        # 选 qwen-flash 是因为最便宜，够应付结构化输出与工具调用；要更强换 qwen-plus 即可，
+        # 临时切换用环境变量 SPRING_AI_OPENAI_CHAT_MODEL 覆盖，不用改这个文件
+        model: qwen-flash
         temperature: 0.2
       # 向量模型：RAG 检索用。父块/子块入库存的就是这个模型的输出
       # 🔴 必须扁平化写 model，不要再套一层 options（Spring AI 2.0.1 已废弃旧写法）
