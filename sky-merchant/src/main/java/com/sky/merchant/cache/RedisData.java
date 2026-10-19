@@ -33,6 +33,7 @@ import java.time.LocalDateTime;
  * @param <T> 真正的业务数据类型，例如 Dish
  * @author ruoyi
  */
+@SuppressWarnings("JavadocBlankLines")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
