@@ -67,4 +67,23 @@ class RagFrontMatterTest
         String text = "# 标题\n\n" + "很短的元信息。".repeat(30) + "\n## 一、\n\n只有几个字。";
         assertEquals(text, RagServiceImpl.stripFrontMatter(text, "doc"), "剥完没剩什么就不该剥");
     }
+
+    @Test
+    @DisplayName("带 UTF-8 BOM：先剥 BOM，剥前言才认得出一级标题")
+    void stripsBomBeforeFrontMatter()
+    {
+        String text = "# Day 15 · 持久化\n\n日期：2026-10-13\n\n" + BODY;
+        String withBom = "\uFEFF" + text;
+
+        // 先证明 BOM 真的会挡住判断：带 BOM 时 startsWith("# ") 为 false，前言剥不掉
+        assertEquals(withBom, RagServiceImpl.stripFrontMatter(withBom, "doc"),
+                "BOM 挡在最前面，剥前言会失效 —— 这正是必须先剥 BOM 的原因");
+
+        // 剥掉 BOM 之后才恢复正常
+        String result = RagServiceImpl.stripFrontMatter(RagServiceImpl.stripBom(withBom), "doc");
+        assertTrue(result.startsWith("## 一、正文开始"), "剥掉 BOM 后应正常剥前言");
+
+        // 没有 BOM 时不能动
+        assertEquals(text, RagServiceImpl.stripBom(text), "没有 BOM 就不该截字符");
+    }
 }

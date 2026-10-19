@@ -36,6 +36,19 @@ public final class RagLimits
     /** 一次向量化请求的批大小 */
     public static final int EMBED_BATCH = 10;
 
+    /**
+     * 单次入库允许的文档大小上限（字节）。
+     *
+     * 为什么不直接用 multipart 那 10MB：
+     * 10MB 的 markdown 大约能切出上万个块，对应上千次 embedding 请求 —— 跑一次就把额度烧光，
+     * 而且是同步跑的，HTTP 请求会直接超时。512KB 对一篇笔记有二十多倍余量，足够。
+     */
+    public static final int MAX_UPLOAD_BYTES = 512 * 1024;
+
+    /** 允许上传的扩展名。只收纯文本：PDF/Word 读出来是乱码，入库等于污染知识库 */
+    public static final java.util.Set<String> ALLOWED_EXTENSIONS =
+            java.util.Set.of("md", "markdown", "txt");
+
     /** 块层级：父块。给模型读 */
     public static final int LEVEL_PARENT = 1;
 

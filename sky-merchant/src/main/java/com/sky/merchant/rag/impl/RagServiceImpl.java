@@ -64,6 +64,11 @@ public class RagServiceImpl implements IRagService
             throw new IllegalArgumentException("文档内容为空：" + docName);
         }
 
+        // 0.1 去掉 UTF-8 BOM。记事本另存为"UTF-8 带 BOM"时会在开头塞一个 \uFEFF，
+        //     它看不见，却会让下一步 stripFrontMatter 的 startsWith("# ") 判失败，
+        //     于是前言悄悄剥不掉 —— 不报错，只是效果没了，而且很难查
+        text = stripBom(text);
+
         // 1) 幂等：同一个 docName 重复调用 = 整篇重建，先删旧块
         //    不删的话，改过切分参数后新旧两套块会混在一起，检索时互相稀释
         vectorStore.deleteDocument(docName);
@@ -335,6 +340,18 @@ public class RagServiceImpl implements IRagService
     // ============================================================
     // 工具
     // ============================================================
+
+    /**
+     * 去掉开头的 UTF-8 BOM。
+     *
+     * BOM 是 Windows 记事本"另存为 UTF-8"时的默认产物，肉眼完全看不见。
+     * 它挡在最前面，会让所有 startsWith 判断失效 —— 包括剥前言那一步，
+     * 于是"文档头没剥掉"这种问题会以一个极不显眼的方式出现：块数比预期多一两个。
+     */
+    static String stripBom(String text)
+    {
+        return (!text.isEmpty() && text.charAt(0) == '\uFEFF') ? text.substring(1) : text;
+    }
 
     /**
      * 剥掉 Markdown 文档头部的「一级标题 + 元信息 + 导语」，只留正文。

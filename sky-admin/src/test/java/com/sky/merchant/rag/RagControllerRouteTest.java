@@ -57,6 +57,7 @@ class RagControllerRouteTest
         System.out.println("-----------------------------------------------");
 
         assertTrue(actual.contains("POST /merchant/rag/index"), "缺入库接口：" + actual);
+        assertTrue(actual.contains("POST /merchant/rag/upload"), "缺文件上传接口：" + actual);
         assertTrue(actual.contains("GET /merchant/rag/ask"), "缺问答接口：" + actual);
         assertTrue(actual.contains("GET /merchant/rag/exists"), "缺存在判断接口：" + actual);
         assertTrue(actual.contains("DELETE /merchant/rag/document"), "缺删除接口：" + actual);
