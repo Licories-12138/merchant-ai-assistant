@@ -1,5 +1,7 @@
 package com.sky.merchant.rag.impl;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.sky.merchant.constant.RagLimits;
 import com.sky.merchant.rag.*;
 import com.sky.merchant.rag.splitter.MarkdownHeaderSplitter;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
  * 放在存储实现里的话，将来换 PostgreSQL 就得把算法重写一遍。
  */
 @SuppressWarnings("JavadocBlankLines")
+@Slf4j
 @Service
 public class RagServiceImpl implements IRagService
 {
@@ -66,8 +69,13 @@ public class RagServiceImpl implements IRagService
         vectorStore.deleteDocument(docName);
 
         // 2) 切父块（按 Markdown 标题层级，超长才降级成按字符切）
+        //    切之前先剥掉文档头部的「标题 + 元信息 + 导语」：
+        //    那段是元信息不是知识，却对任何问题都有中等相似度，于是长期霸占第 1 名。
+        //    2026-10-19 实测：问「断点续传依靠哪三个要素」，它以 0.7113 稳居第 1，
+        //    真正装答案的 3.2 节只有 0.6270 —— 这类「万能块」是 Hit@1 的头号杀手。
         List<String> parents = splitToTexts(
-                new MarkdownHeaderSplitter(RagLimits.PARENT_SIZE, RagLimits.PARENT_OVERLAP), text);
+                new MarkdownHeaderSplitter(RagLimits.PARENT_SIZE, RagLimits.PARENT_OVERLAP),
+                stripFrontMatter(text, docName));
 
         // 3) 父块逐个落库（要拿 id），同时切子块并填 parentId
         List<RagChunk> children = new ArrayList<>();
@@ -327,6 +335,49 @@ public class RagServiceImpl implements IRagService
     // ============================================================
     // 工具
     // ============================================================
+
+    /**
+     * 剥掉 Markdown 文档头部的「一级标题 + 元信息 + 导语」，只留正文。
+     *
+     * 为什么需要这一步：
+     * 文档开头那段（标题、日期、实验目录、"承接上一天……"、本日排期、产出）
+     * 是元信息，不是知识。它对任何问题都有一点点像，于是长期霸占检索第 1 名，
+     * 把真正装答案的那一节挤到第 2。而"第 1 名是谁"恰恰是演示和评测里最常被看的东西。
+     *
+     * 判定规则，三条同时满足才剥 —— 宁可不剥，也不要误删正文：
+     *   1) 文档以 "# " 开头。这是「一级标题 + 正文」的笔记结构；
+     *      以 "## " 开头的说明第一段就是正文，不碰
+     *   2) 存在 "\n## "。有二级标题，说明正文确实从某一级标题往下开始
+     *   3) 头部占全文不到 40%，且剩下的正文不少于 500 字
+     *      这两条是保险：短文档里"头部"很可能就是全部内容
+     *
+     * 代价要说清楚：剥掉之后，问「这篇文档讲了什么」这种元问题会搜不到答案。
+     * 门店知识库的提问都是具体业务问题，不吃这个代价；
+     * 换成产品手册、FAQ 这类语料时要重新评估。
+     */
+    static String stripFrontMatter(String text, String docName)
+    {
+        if (!text.startsWith("# "))
+        {
+            return text;
+        }
+        int idx = text.indexOf("\n## ");
+        if (idx < 0)
+        {
+            return text;
+        }
+
+        String head = text.substring(0, idx);
+        String body = text.substring(idx + 1);
+        if (head.length() > text.length() * 0.4 || body.length() < 500)
+        {
+            return text;
+        }
+
+        log.info("剥离文档头部元信息：docName={}，丢掉 {} 字，保留正文 {} 字",
+                docName, head.length(), body.length());
+        return body;
+    }
 
     /**
      * 切分并丢掉空块。
