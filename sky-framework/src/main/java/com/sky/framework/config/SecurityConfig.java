@@ -104,6 +104,13 @@ public class SecurityConfig
                     // 静态资源，可匿名访问
                     .requestMatchers(HttpMethod.GET, "/", "/*.html", "/**.html", "/**.css", "/**.js", "/profile/**").permitAll()
                     .requestMatchers("/swagger-ui.html", "/v3/api-docs/**", "/swagger-ui/**", "/druid/**").permitAll()
+                    // 错误页放行。
+                    // 为什么必须放行：业务请求出错时 Spring Boot 会把请求转发到 /error，
+                    // 而 JWT 过滤器继承 OncePerRequestFilter，默认不在 ERROR 转发上再跑一次，
+                    // 于是这次转发没有登录态、被 anyRequest().authenticated() 拦下，返回 401。
+                    // 结果就是 404 / 500 全被伪装成"401 请求访问：/error"，真错误永远看不见。
+                    // 放行后 /error 只输出 status / path 这类信息（include-stacktrace 默认 never），不泄露内容。
+                    .requestMatchers("/error").permitAll()
                     // 除上面外的所有请求全部需要鉴权认证
                     .anyRequest().authenticated();
             })
