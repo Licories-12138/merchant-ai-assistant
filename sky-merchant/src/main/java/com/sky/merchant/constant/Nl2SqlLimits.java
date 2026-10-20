@@ -16,5 +16,16 @@ public final class Nl2SqlLimits {
     /** 单条 SQL 的执行超时（秒）。超时由驱动发 KILL QUERY 中断，连接随即归还连接池 */
     public static final int QUERY_TIMEOUT_SECONDS = 5;
 
+    /**
+     * 自愈循环最多重试几次（不含第一次）。
+     *
+     * 为什么是 2 而不是 3 或 5：每轮都要调一次模型（3~8 秒）。
+     * 1 次 = 正常情况；2 次能覆盖"列名写错""表名写错"这类单点错误；
+     * 到第 3 次重试时，往往不是"模型手滑"而是"schema 提示不够"或"问题本身不可答"，
+     * 再重试也是同样结果，只是让用户多等二十秒。
+     * 换句话说：重试次数要覆盖"偶发错误"，不要去硬扛"系统性错误"。
+     */
+    public static final int MAX_RETRY = 2;
+
     private Nl2SqlLimits() { }
 }

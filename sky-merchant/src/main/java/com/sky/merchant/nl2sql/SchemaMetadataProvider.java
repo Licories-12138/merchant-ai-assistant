@@ -6,6 +6,7 @@ import java.util.List;
  * 元数据提供者：把 information_schema 里的机器可读结构，转成模型可读的文本。
  * 这是整条链路的 输入质量来源 —— 模型能不能写对 SQL，八成取决于这里喂了什么。
  */
+@SuppressWarnings("ALL")
 public interface SchemaMetadataProvider
 {
     /**

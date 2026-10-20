@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import com.sky.merchant.nl2sql.INl2SqlService;
 import com.sky.merchant.nl2sql.Nl2SqlResult;
+import com.sky.merchant.nl2sql.Nl2SqlSupport;
 import com.sky.merchant.nl2sql.SchemaMetadataProvider;
 import com.sky.merchant.nl2sql.SqlValidator;
 import com.sky.merchant.nl2sql.ValidationResult;
@@ -78,7 +79,7 @@ public class Nl2SqlServiceImpl implements INl2SqlService {
         if (raw == null){
             return Nl2SqlResult.fail("模型输出为空");
         }
-        String sql = stripCodeFence(raw);
+        String sql = Nl2SqlSupport.stripCodeFence(raw);
 
         // 2.5 模型主动拒答：问题超出已有表结构能回答的范围（见 system prompt 规则 4）。
         //     这一步是「体验层」不是「安全层」—— 它靠模型自觉，可能被绕过；
@@ -97,71 +98,6 @@ public class Nl2SqlServiceImpl implements INl2SqlService {
         // 4. 执行 —— 用 vr.getRewrittenSql()（校验器重写后的），不是模型原始 SQL
         String finalSql = vr.getRewrittenSql();
         log.info("NL2SQL 生成 SQL：{}", finalSql);
-        try {
-            return jdbcTemplate.query(finalSql, rs -> {
-                ResultSetMetaData meta = rs.getMetaData();
-                int n = meta.getColumnCount();
-
-                List<String> columns = new ArrayList<>();
-                for (int i = 0; i < n; i++) {
-                    columns.add(meta.getColumnLabel(i + 1));   //  用 label 拿别名
-                }
-
-                List<List<String>> rows = new ArrayList<>();
-                while (rs.next()) {
-                    List<String> row = new ArrayList<>();
-                    for (int i = 0; i < n; i++) {
-                        row.add(rs.getString(i + 1));
-                    }
-                    rows.add(row);
-                }
-
-                int max = Nl2SqlLimits.MAX_ROWS;
-                boolean truncated = rows.size() >= max;
-
-                // 5. 组装 Nl2SqlResult：sql / columns / rows / rowCount / truncated / error
-                return Nl2SqlResult.success(finalSql, columns, rows, rows.size(), truncated);
-            });
-        } catch (Exception e) {
-            log.error("NL2SQL 执行失败，sql = {}", finalSql, e);
-            return Nl2SqlResult.fail("SQL 执行失败", e.getMessage()).withSql(finalSql);
-        }
-    }
-    /**
-     * 剥掉模型可能加上的 markdown 代码围栏。
-     * 模型很爱输出 ```sql ... ``` 或 ``` ... ```，
-     * 不断掉的话 Druid 解析会失败（解析器不认识反引号围栏）。
-     */
-    private String stripCodeFence(String raw)
-    {
-        if (raw == null) return "";
-        String s = raw.trim();
-        if (!s.startsWith("```")) {
-            return stripLangTag(s);
-        }
-        int start = 3;
-        int end = s.lastIndexOf("```");
-        String body = (end <= start)
-                ? s.substring(start)          // 截断：从 start 到末尾
-                : s.substring(start, end);    // 正常：取中间
-        return stripLangTag(body.trim());
-    }
-
-    /**
-     * 去掉可能的语言标识, 例如 ```sql
-     * @param body 要处理的文本
-     * @return 处理后的文本
-     */
-    private String stripLangTag(String body) {
-        // 去掉可能的语言标识, 例如 sql
-        String t = body.stripLeading();
-        if (t.regionMatches(true, 0, "sql", 0, 3)) {
-            t = t.substring(3).stripLeading();
-            if (t.startsWith(":")) {
-                t = t.substring(1).stripLeading(); //   处理 "SQL:" 前缀
-            }
-            return t.trim();
-        }
-        return body;
+        return Nl2SqlSupport.execute(jdbcTemplate, finalSql);
     }
 }

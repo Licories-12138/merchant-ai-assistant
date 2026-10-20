@@ -28,6 +28,13 @@ public class Nl2SqlResult
     /** 校验/执行失败时的原因。非 null 表示这次没成功，sql 字段可能仍有用（说明模型写了啥） */
     private String error;
 
+    /**
+     * 自愈循环的逐轮轨迹。线性流程（Nl2SqlServiceImpl）不填，保持 null。
+     * 为什么放在这里而不是单开一个结果类型：前端渲染表格的逻辑对两个流程完全一样，
+     * 只多带一个诊断字段，不值得为此复制一整套 columns/rows/error。
+     */
+    private List<Attempt> attempts;
+
     public String getSql()
     {
         return sql;
@@ -86,6 +93,26 @@ public class Nl2SqlResult
     public void setError(String error)
     {
         this.error = error;
+    }
+
+    public List<Attempt> getAttempts()
+    {
+        return attempts;
+    }
+
+    public void setAttempts(List<Attempt> attempts)
+    {
+        this.attempts = attempts;
+    }
+
+    /**
+     * 补上逐轮轨迹。同样是链式，理由同 withSql：
+     * 成功和失败两条路径都要带轨迹，给每个工厂加参数会把参数表撑爆。
+     */
+    public Nl2SqlResult withAttempts(List<Attempt> attempts)
+    {
+        this.attempts = attempts;
+        return this;
     }
 
     // ==================================================================
