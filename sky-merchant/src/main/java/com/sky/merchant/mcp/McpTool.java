@@ -17,7 +17,7 @@ import java.util.Map;
  * 新增一个工具 = 新增一个 @Component implements McpTool。
  * McpServer 通过构造器注入 List<McpTool> 自动收齐，注册代码不用动。
  */
-@SuppressWarnings("JavadocBlankLines")
+@SuppressWarnings({"JavadocBlankLines", "JavadocDeclaration"})
 public interface McpTool
 {
     /**

@@ -28,7 +28,7 @@ import java.util.Map;
  *
  * 顺带一个好处：结构化数据能直接断言。@Tool 版返回自然语言，测试只能做 contains 匹配。
  */
-@SuppressWarnings("JavadocBlankLines")
+@SuppressWarnings({"JavadocBlankLines", "JavadocDeclaration"})
 @Component
 public class DishMcpTool implements McpTool
 {
