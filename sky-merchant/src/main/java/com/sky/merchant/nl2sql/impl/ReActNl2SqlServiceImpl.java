@@ -81,8 +81,15 @@ public class ReActNl2SqlServiceImpl implements INl2SqlAgentService
             %s
             """;
 
-    /** 重试时追加给人的一段说明，%s 依次是「上一版 SQL」和「数据库原始报错」 */
-    private static final String RETRY_HINT = """
+    /**
+     * 重试时追加给人的一段说明，%s 依次是「上一版 SQL」和「数据库原始报错」。
+     *
+     * 为什么降成包可见（不写 private）：让同包的单元测试能钉住"占位符刚好两个"这件事。
+     * 模板和调用点隔着几十行，改模板时忘了同步参数个数的话，编译期毫无提示，
+     * 要等第一次真的需要重试才抛 MissingFormatArgumentException —— 而重试本身就是少数路径，
+     * 很可能上线很久都没人踩到。
+     */
+    static final String RETRY_HINT = """
             你上一次生成的 SQL 执行失败了，请修正后重新只输出一条 SQL。
             上一次的 SQL：
             %s
