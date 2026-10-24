@@ -42,6 +42,14 @@ public class DishTools
         redisTemplate.opsForZSet().incrementScore(RedisKeys.DISH_HOT_KEY, name.trim(), 1);
         List<Dish> list = dishService.selectDishList(query);
 
+        // 新增：把工具真实返回打出来，用来判断模型是不是真的用了查库结果
+        System.out.println(">>> [Agent] searchDishByName 命中 "
+                + (list == null ? 0 : list.size()) + " 条: "
+                + (list == null ? "" : list.stream()
+                                       .map(this::formatDish)
+                                       .reduce((a, b) -> a + "；" + b)
+                                       .orElse("")));
+
         if (list == null || list.isEmpty())
         {
             return "没有找到名字包含「" + name + "」的菜品";

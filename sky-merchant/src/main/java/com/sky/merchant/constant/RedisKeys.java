@@ -108,6 +108,12 @@ public class RedisKeys
     /** NL2SQL schema 文本的 TTL（秒）：30 分钟。DDL 变更后靠等它过期或手动删 */
     public static final int NL2SQL_SCHEMA_TTL_SECONDS = 30 * 60;
 
+    /** 多轮会话记忆前缀 */
+    public static final String CHAT_MEMORY_PREFIX = "merchant:chat:memory:";
+
+    /** 会话记忆 TTL（秒）：30 分钟，每次写入续期 = 滑动过期 */
+    public static final int CHAT_MEMORY_TTL_SECONDS = 30 * 60;
+
     private RedisKeys()
     {
     }
