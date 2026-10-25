@@ -114,6 +114,47 @@ public class RedisKeys
     /** 会话记忆 TTL（秒）：30 分钟，每次写入续期 = 滑动过期 */
     public static final int CHAT_MEMORY_TTL_SECONDS = 30 * 60;
 
+    /** 会话索引：member = sessionId，score = 最后活跃时间戳（毫秒） */
+    public static final String CHAT_MEMORY_INDEX = "merchant:chat:memory:index";
+
+    /**
+     * 会话上下文前缀，后面直接拼 sessionId。
+     * 例：merchant:chat:ctx:s1
+     *
+     * 和 CHAT_MEMORY_PREFIX 是两个东西，不要合并：
+     * 记忆存的是「说过的话」（USER 问句 + ASSISTANT 最终答案两条文本），
+     * 上下文存的是「查到的数据」（菜名 / 价格 / 状态 / 简介这些结构化字段）。
+     * 工具轨迹进不了记忆（advisor 只搬两条），所以「上一轮查到过哪些菜」
+     * 这个事实只能由这一层承载。混进记忆会让每次请求多带一坨无关数据，
+     * 而且模型会把「执行过程」当成「对话内容」，容易答非所问。
+     */
+    public static final String CHAT_CONTEXT_PREFIX = "merchant:chat:ctx:";
+
+    /**
+     * 会话上下文 TTL（秒）：30 分钟，和 CHAT_MEMORY_TTL_SECONDS 取同一个值。
+     * 为什么必须一致：如果上下文活得比记忆久，就会出现「模型不记得聊过什么、
+     * 却配着一堆上一轮的数据」的错位状态，比两边都没有更难解释。
+     *
+     * 续期时机（踩过坑）：只在 putAll 里续是不够的 —— putAll 只有查库时才调用，
+     * 而一个会话完全可能连续追问七八轮都不查库，那样 ctx 会先于 memory 过期。
+     * 所以 doRender 读到非空内容时也续一次，两者才同生共死。
+     */
+    public static final int CHAT_CONTEXT_TTL_SECONDS = 30 * 60;
+
+    /**
+     * 会话上下文里「一条事实多久之后算旧」（秒）：5 分钟。
+     *
+     * 和 CHAT_CONTEXT_TTL_SECONDS 是两个概念，最容易混的一个点：
+     * TTL 管的是「这条数据还能存在多久」，它管的是「这条数据还能不能被直接引用」。
+     * 价格和库存随时会改，所以 30 分钟内不删它（「用户在说哪道菜」这种指代判断还要靠它），
+     * 但超过 5 分钟就不该被当成答案的数值来源了。
+     *
+     * 为什么过期不直接删：删了模型会从对话记忆里捡回上一轮 assistant 说过的旧价格，
+     * 反而更难发现。所以是渲染时打 [STALE] 标记，并把「能不能引用」写成提示词里的分档规则：
+     * 没标 [STALE] 的可信期内可以直接引用，标了的一律先重查再答。
+     */
+    public static final int CHAT_CONTEXT_FACT_STALE_SECONDS = 5 * 60;
+
     private RedisKeys()
     {
     }

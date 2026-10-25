@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import com.sky.merchant.domain.Dish;
+import org.springframework.ai.chat.model.ToolContext;
 
 /**
  * 自然语言点单 Agent 的工具集：菜品查询
@@ -25,6 +26,8 @@ public class DishTools
     private IDishService dishService;
     @Autowired
     private RedisTemplate<Object, Object> redisTemplate;
+    @Autowired
+    private ChatContextStore chatContextStore;
 
     /**
      * 按菜名模糊查询菜品。
@@ -32,7 +35,8 @@ public class DishTools
      */
     @Tool(description = "根据菜名关键词模糊查询菜品，返回菜名、售价和在售状态。例如用户问「宫保鸡丁多少钱」或「有哪些鱼香肉丝」时调用")
     public String searchDishByName(
-            @ToolParam(description = "菜名关键词，例如「宫保鸡丁」或「鱼香肉丝」") String name)
+            @ToolParam(description = "菜名关键词，例如「宫保鸡丁」或「鱼香肉丝」") String name,
+            ToolContext toolContext)
     {
         System.out.println(">>> [Agent] 模型调用 searchDishByName，参数 name = " + name);
 
@@ -54,6 +58,10 @@ public class DishTools
         {
             return "没有找到名字包含「" + name + "」的菜品";
         }
+        // 查到了才写：上面空列表已经提前 return，走到这里 list 必然非空；
+        // putAll 内部对空列表也会直接返回，属于双保险
+        chatContextStore.putAll(ctxSessionId(toolContext), list, name);
+
         return list.stream()
                 .map(this::formatDish)
                 .reduce((a, b) -> a + "；" + b)
@@ -80,6 +88,30 @@ public class DishTools
                 .map(this::formatDish)
                 .reduce((a, b) -> a + "；" + b)
                 .orElse("");
+    }
+
+    /**
+     * 从 ToolContext 里取会话 id。
+     * ToolContext 模型看不见（JsonSchemaGenerator 明确把它排除在 JSON Schema 之外），
+     * 它是框架在调用工具时旁路塞进来的 —— 工具靠它才知道「这次查库属于哪个会话」。
+     *
+     * 为什么只判 toolContext 本身、不判 getContext()：
+     * ToolContext 构造器用 Collections.unmodifiableMap 包了一层，传 null 当场 NPE，
+     * 所以实例一旦造出来，context 就永远不是 null，判它是死代码（IDE 会直接标出来）。
+     * 而 toolContext 本身仍要判一次 —— 框架的校验只在 MethodToolCallback.call 那条路上兜底，
+     * 单测里直接调这个方法时拿不到框架塞的值。
+     *
+     * 返回 null 时 putAll 会直接跳过：宁可这轮不记上下文，也不许把事实写进
+     * 一个 null 拼出来的 key（那会变成一个所有会话共用的脏桶）。
+     */
+    private String ctxSessionId(ToolContext toolContext)
+    {
+        if (toolContext == null)
+        {
+            return null;
+        }
+        Object value = toolContext.getContext().get(ChatContextStore.SESSION_ID_KEY);
+        return value == null ? null : value.toString();
     }
 
     /**
